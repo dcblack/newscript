@@ -1,0 +1,63 @@
+#!new # vim:syntax=sh
+
+# DEFAULTS
+--require bin$
+--alias BRIEF=ONE_LINE_DESCRIPTION
+
+# BRIEF
+#! A basic bash script template.
+
+=pod
+
+=head1 NAME
+
+B<'bash' template> - A basic bash script template.
+
+=head1 SYNOPSIS
+
+B<new> template [-d {:I<DIR>:}] {:I<NAME>:} {:I<PARAMETERS>:}
+
+=head1 DESCRIPTION
+
+This template creates a simple BASH script that includes
+POD documentation.
+
+=head1 PARAMETERS
+
+ BRIEF="A one line description"
+ DESCRIPTION="Long description"
+ SYNTAX="Arguments to script"
+ CODE="Body of script"
+ $COMPANY="Your company"
+ $FULL_NAME="Your Name"
+ $USER="Email_address"
+ $DOMAIN="Company.com"
+ $LICENSE="File_containing_license_wording"
+
+=head1 REQUIREMENTS
+
+=head1 FILES
+
+=head1 AUTHOR
+
+David C Black <dcblack@xtreme-eda.com>
+
+=head1 COPYRIGHT & LICENSE
+
+The 'template' template is copyright (C) 2010 {:COMPANY:}
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+ L<http://www.apache.org/licenses/LICENSE-2.0>
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+=cut
+
+# END  {:Id:}

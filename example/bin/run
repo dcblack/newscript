@@ -1,0 +1,13 @@
+#!/bin/csh
+# Copyright 2010 by  Widgets Inc.. All rights reserved.
+# Original author: dcblack
+#
+# Trivial run script.
+
+verilog \
+  {:SWITCHES:}
+  example_top.v\
+  {:DUT}_rtl.v\
+  basic_test.v\
+  | tee example_basic.log
+echo "Saved log in example_basic.log"

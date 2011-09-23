@@ -1,0 +1,36 @@
+a newscript-1.7/README.txt
+a newscript-1.7/bin
+a newscript-1.7/bin/newscript
+a newscript-1.7/bin/phred
+a newscript-1.7/man
+a newscript-1.7/man/man1
+a newscript-1.7/man/man1/newscript.1
+a newscript-1.7/man/man1/phred.1
+a newscript-1.7/templates
+a newscript-1.7/templates/apache.txt
+a newscript-1.7/templates/bash
+a newscript-1.7/templates/boiler
+a newscript-1.7/templates/cpp
+a newscript-1.7/templates/template
+a newscript-1.7/templates/vlog_ex
+a newscript-1.7/templates/vlog_ex/.newrc
+a newscript-1.7/templates/vlog_ex/lxNAMExr
+a newscript-1.7/templates/vlog_ex/lxNAMExr/bin
+a newscript-1.7/templates/vlog_ex/lxNAMExr/src
+a newscript-1.7/templates/vlog_ex/lxNAMExr/src/lxDUTxr_rtl.v
+a newscript-1.7/templates/vlog_ex/lxNAMExr/src/lxNAMExr_top.v
+a newscript-1.7/templates/vlog_ex/lxNAMExr/src/lxTESTxr_test.v
+a newscript-1.7/templates/vlog_ex/lxNAMExr/bin/run
+a newscript-1.7/templates/template/.newrc
+a newscript-1.7/templates/template/lxNAMExr
+a newscript-1.7/templates/template/lxNAMExr/.newrc
+a newscript-1.7/templates/cpp/.newrc
+a newscript-1.7/templates/cpp/lxNAMExr.cpp
+a newscript-1.7/templates/cpp/Makefile
+a newscript-1.7/templates/boiler/.newrc
+a newscript-1.7/templates/boiler/ABOUT_lxNAMExr.txt
+a newscript-1.7/templates/bash/.newrc
+a newscript-1.7/templates/bash/lxNAMExr
+newscript-1.7.tgz.sha
+newscript-1.7.tgz.md5
+newscript-1.7.tgz.asc

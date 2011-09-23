@@ -1,0 +1,57 @@
+#!/bin/bash
+#
+#$Info: {:NAME:} - {:ONE_LINE_DESCRIPTION:}. $
+
+#{:CODE:}
+exit 0;
+
+# DOCUMENTATION
+help:
+  perldoc $0
+  cat >/dev/null <<.
+=pod
+
+=head1 NAME
+
+B<{:NAME:}> - {:ONE_LINE_DESCRIPTION:}
+
+=head1 SYNOPSIS
+
+B<{:NAME:}> {:SYNTAX:}
+
+=head1 DESCRIPTION
+
+{:LONG_DESCRIPTION:}
+
+=head1 OPTIONS
+
+=over
+
+=item {:OPTION:}
+
+{:OPTION_DESCRIPTION:}
+
+=back
+
+=head1 ENVIRONMENT
+
+=head1 FILES
+
+=head1 DEPENDENCIES
+
+=head1 EXAMPLES
+
+=head1 AUTHOR
+
+{:$FULL_NAME:} <{:$USER:}@{:$DOMAIN:}>
+
+=head1 COPYRIGHT & LICENSE
+
+'{:NAME:}' template is copyright (C) {:YEAR:} {:$COMPANY:}
+
+{:include:{:$LICENSE:}:}
+
+=cut
+
+.
+#END {:Id:}

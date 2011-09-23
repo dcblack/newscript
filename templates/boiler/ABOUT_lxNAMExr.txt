@@ -1,0 +1,16 @@
+//FILE: {:FILE:}
+//-------------------------------------------------------------
+// {:$COMPANY:} PROPRIETARY AND CONFIDENTIAL
+// Copyright {:YEAR:} {:$COMPANY:}. All rights reserved.
+//-------------------------------------------------------------
+// {:LONG_DESCRIPTION:}
+//
+// Author :       {:AUTHOR:}
+// Contact info : {:EMAIL:}
+//-------------------------------------------------------------
+// Version control information
+//
+// {:Source:}
+// {:Id:}
+// {:Revision:}
+//-------------------------------------------------------------
