@@ -31,7 +31,7 @@ our $orig_dir = &getcwd();
 use FindBin qw($RealBin $RealScript);
 our @if;
 our $optional;
-our $revn = 1.7; #< manually update
+our $revn = 1.8; #< manually update
 
 # Setup package for export #{{{
 use Exporter   ();
