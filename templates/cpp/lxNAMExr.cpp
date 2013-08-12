@@ -1,0 +1,31 @@
+//BEGIN {:FILE:} (aka {:TYPE:})
+// COMMENT BLOCK <<<///////////////////////////////////////////////////////////
+// {:<$COPYRIGHT>:}
+// REVISION INFORMATION 
+// $Project: {:PROJ_NAME:}$
+// {:Id:}
+// 
+// DESCRIPTION
+//! \brief {:SHORT_DESCRIPTION:}
+//
+// {:LONG_DESCRIPTION:}
+//
+////////////////////////////////////////////////////////////////////////////>>>
+//{:INCLUDES:}
+
+///////////////////////////////////////////////////////////////////////////////
+int main(int argc, char *argv[]) {
+  {:YOUR_CODE_HERE:}
+  //<<< MSVS only
+#ifdef _WIN32_WINNT
+  /////////////////////////////////////////////////////////////////////////////
+  // MSVS ease of use take input from keyboard (KB) to hold output window open 
+  std::cout << "Press RETURN to exit program." << std::endl;
+  std::cin.get();
+#endif
+  //>>>
+}//end main
+///////////////////////////////////////////////////////////////////////////////
+// {:<$COPYRIGHT>:}
+// -*- C++ -*- vim600:syntax=cpp:sw=2:tw=78:fmr=<<<,>>>
+//END {:Id:}
