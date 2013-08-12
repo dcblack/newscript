@@ -6,8 +6,9 @@
 #@(#)$Info: phred - Place Holder Replacement EDitor. $
 # @(#)$Copyright: (C) 2003-2007 ESLX Inc. $
 # @(#)$Copyright: (C) 2009-2010 XtremeEDA Corporation. $
+# @(#)$Copyright: (C) 2012-2013 David C Black. $
 # @(#)$Licensing: Apache License, Version 2.0 $
-# @(#)$Email: <dcblack@xtreme-eda.com>. $
+# @(#)$Email: <dcblack@hldwizard.com>. $
 # @(#)$Id: phred 1129 2010-07-15 19:34:21Z dcblack $
 require 5.0; #<<<1
 use warnings;
@@ -18,7 +19,7 @@ STDOUT->autoflush(1);
 STDERR->autoflush(1);
 use FindBin qw($RealBin $RealScript);
 
-our $auth = 'David C Black <dcblack@xtreme-eda.com>';
+our $auth = 'David C Black <dcblack@hldwizard.com>';
 our $tool = $RealScript;
 our $TOOL = uc $tool;
 our $revn = 1.4; #< manually update
@@ -643,6 +644,8 @@ Copyright (C) 2003-2007 ESLX Inc. All rights reserved.
 
 Copyright (C) 2009-2010 XtremeEDA Corporation. All rights reserved.
 
+Copyright (C) 2012-2013 David C Black. All rights reserved.
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -657,6 +660,6 @@ limitations under the License.
 
 =head1 AUTHOR
 
-David C. Black <dcblack@xtreme-eda.com>
+David C. Black <dcblack@hldwizard.com>
 
 =cut
