@@ -31,7 +31,7 @@ our $orig_dir = &getcwd();
 use FindBin qw($RealBin $RealScript);
 our @if;
 our $optional;
-our $revn = 1.8; #< manually update
+our $revn = 1.7; #< manually update
 
 # Setup package for export #{{{
 use Exporter   ();
@@ -519,7 +519,10 @@ sub INFO { #<<<2
       next unless $template eq $kind;
       my $template_dir = &path("$rootdir/$template");
       next unless -d $template_dir;
-      if (-r "$template_dir/$rc" and -T "$template_dir/$rc") {
+      if (exists $OPT{-path} and $OPT{-path}) {
+        printf "%s/.\n",$template_dir;
+        $success = 1;
+      } elsif (-r "$template_dir/$rc" and -T "$template_dir/$rc") {
         my $TMPL_FH;
         open $TMPL_FH,q{<},"$template_dir/$rc" 
           or die "FATAL: Unable to read $template_dir/$rc!?\n";
@@ -762,13 +765,33 @@ sub recurse_placeholder { #<<<2
 }#endsub recurse_placeholder
 
 ###############################################################################
+sub check_default { #<<<2
+  my ($ph,$lhe,$rhe,$lvl) = @_;
+  $lvl = 0 unless defined $lvl;
+  if ($lvl > 10) {
+    &REPORT_ERROR("Too much recursion in check_default!");
+    return;
+  }#endif
+  return unless exists $DEFAULT{$ph} and not exists $REPL{$ph};
+  my $phre = qr|$lhe(\w[-[:word:]]*)$rhe|x;
+  my $line = $DEFAULT{$ph};
+  if ($line =~ $phre) {
+    my $dph = $1;
+    &check_default($dph,$lhe,$rhe,++$lvl);
+    return unless exists $REPL{$dph};
+    $line =~ s{$phre}{$REPL{$dph}};
+  }
+  $REPL{$ph} = $line;
+}#endsub check_default
+
+###############################################################################
 sub replace_placeholder { #<<<2
   my ($repl_c,$phld_c) = (0,0);
   my ($line,$lhe,$rhe,$ifs,$rfile) = @_;
   #----------------------------------------------------------------------------
   # Zap if inside false if-clause and not ending
   #----------------------------------------------------------------------------
-  if (@if and $if[$#if] =~ m{:[0!]$} and $line !~ m{$lhe(?:if|elsif|else|endif):}) {
+  if (@if and $if[$#if] =~ m{$ifs[0!]$} and $line !~ m{$lhe(?:if|elsif|else|endif)$ifs}) {
     $line = '';
     goto SKIP;
   }#endif
@@ -808,13 +831,15 @@ sub replace_placeholder { #<<<2
     $t = sprintf("$;%d$;",$i);
     $fn = '';
     $ph = $fph = $placeholder[$i];
+    &check_default($ph,$lhe,$rhe);
     if ($fph =~ m{$ifs}) {
       ($fn,$ph) = ($`,$');
     }#endif
     # Check for aliases
     if (exists $SAILA{$ph}) {
       for my $candidate (@{$SAILA{$ph}}) {
-        next unless $REPL{$candidate};
+        &check_default($candidate,$lhe,$rhe);
+        next unless exists $REPL{$candidate};
         $ph = $candidate;
         last;
       }
@@ -854,7 +879,7 @@ sub replace_placeholder { #<<<2
       #------------------------------------------------------------------------
       } elsif ($fn eq 'elsif') {
         if (not scalar @if) {
-          printf "ERROR: unexpected {:$fn:-clause! Template missing/unbalanced {:if:-clause?\n";
+          printf "ERROR: unexpected {:$fn:-clause! Template missing clause for $ph?\n";
           $errors++;
         } else {
           $truth = '!' if $if[$#if] =~ m{:[1!]$};
@@ -863,10 +888,10 @@ sub replace_placeholder { #<<<2
       #------------------------------------------------------------------------
       } elsif ($fn eq 'else') {
         if (not scalar @if) {
-          printf "ERROR: unexpected {:$fn:-clause! Template missing/unbalanced {:if:-clause?\n";
+          printf "ERROR: unexpected {:$fn:-clause! Template missing clause for $ph?\n";
           $errors++;
         } elsif ($if[$#if] !~ m{^$ph:([01!])$}) {
-          printf "ERROR: unmatched {:$fn:-clause! Template missing/unbalanced {:if:-clause?\n";
+          printf "ERROR: unmatched {:$fn:-clause! Template missing/unbalanced for $ph?\n";
           $errors++;
         } else {
           $truth = $1 ? 0 : 1 unless $truth eq '!';
@@ -876,10 +901,10 @@ sub replace_placeholder { #<<<2
       #------------------------------------------------------------------------
       } else { # 'endif'
         if (not scalar @if) {
-          printf "ERROR: unexpected {:$fn:-clause! Template missing/unbalanced {:if:-clause?\n";
+          printf "ERROR: unexpected {:$fn:-clause! Template missing clause for $ph?\n";
           $errors++;
         } elsif ($if[$#if] !~ m{^$ph:([01!])$}) {
-          printf "ERROR: unmatched {:$fn:-clause! Template missing/unbalanced {:if:-clause?\n";
+          printf "ERROR: unmatched {:$fn:-clause! Template missing/unbalanced for $ph?\n";
           $errors++;
         } else {
           pop @if;
@@ -1060,6 +1085,11 @@ sub addargs { # Parses command-line arguments <<<2
     #--------------------------------------------------------------------------
     } elsif ($arg eq '--dir'          or $arg eq '-d') {
       $OPT{-dir} = shift(@_);
+    #--------------------------------------------------------------------------
+    # Display path to template
+    #--------------------------------------------------------------------------
+    } elsif ($arg eq '--path') {
+      $OPT{-path} = 1;
     #--------------------------------------------------------------------------
     # Edit
     #--------------------------------------------------------------------------
