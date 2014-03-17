@@ -18,6 +18,7 @@ use FileHandle;
 STDOUT->autoflush(1);
 STDERR->autoflush(1);
 use FindBin qw($RealBin $RealScript);
+use File::Find ();
 
 our $auth = 'David C Black <dcblack@hldwizard.com>';
 our $tool = $RealScript;
@@ -342,6 +343,11 @@ sub addargs { #<<<2
     } elsif ($arg eq '--quiet'        or $arg eq '-q') {
       $OPT{-q} = 1;                   
     #--------------------------------------------------------------------------
+    # Recursive
+    #--------------------------------------------------------------------------
+    } elsif ($arg eq '--recursive'        or $arg eq '-r') {
+      $OPT{-r} = 1;                   
+    #--------------------------------------------------------------------------
     # Verbosity
     #--------------------------------------------------------------------------
     } elsif ($arg eq '--verbose'      or $arg eq '-v') {
@@ -374,6 +380,29 @@ sub addargs { #<<<2
       push @hold,$arg;
     }#endif
   }#endwhile
+  #
+  #            # Set the variable $File::Find::dont_use_nlink if you're
+  #            using AFS,
+  #            # since AFS cheats.
+  #
+  #            # for the convenience of &wanted calls, including -eval
+  #            statements:
+  #
+  #            sub wanted;
+  #
+  #
+  #
+  #            # Traverse desired filesystems
+  if (exists $OPT{-r}) {
+    our @FOUND=();
+    File::Find::find({wanted => \&wanted}, 't');
+    sub wanted {
+       my ($dev,$ino,$mode,$nlink,$uid,$gid);
+       next unless (($dev,$ino,$mode,$nlink,$uid,$gid) = lstat($_));
+       push @FOUND,$File::Find::name if -T $_;
+    }
+    push @hold,@FOUND if @FOUND;
+  }#endif
   # rcm: @hold may contain duplicate filenames, remove them here
   # rcm: return @hold;
   my @new_hold = sort @hold;
