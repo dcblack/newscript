@@ -74,7 +74,7 @@ B<make -f Makefile> {:TARGET:}
 
 =head1 DESCRIPTION
 
-Builds newscript-$VERSION tarball.
+Builds newscript-$NEWVERS tarball.
 
 =head1 USAGE
 
