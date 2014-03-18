@@ -341,12 +341,21 @@ sub addargs { #<<<2
     # Quiet
     #--------------------------------------------------------------------------
     } elsif ($arg eq '--quiet'        or $arg eq '-q') {
-      $OPT{-q} = 1;                   
+      $OPT{'-q'} = 1;
     #--------------------------------------------------------------------------
     # Recursive
     #--------------------------------------------------------------------------
     } elsif ($arg eq '--recursive'        or $arg eq '-r') {
-      $OPT{-r} = 1;                   
+      if (@_ && $_[0] !~ m{^-} && -d $_[0]) {
+        my $dir = shift(@_);
+        if (exists $OPT{-r}) {
+          push @{$OPT{-r}},shift @_;
+        } else {
+          @{$OPT{-r}} = shift(@_);
+        }#endif
+      } else {
+        warn "-r must specify an existing directory -- ignoring\n";
+      }#endif
     #--------------------------------------------------------------------------
     # Verbosity
     #--------------------------------------------------------------------------
@@ -395,12 +404,14 @@ sub addargs { #<<<2
   #            # Traverse desired filesystems
   if (exists $OPT{-r}) {
     our @FOUND=();
-    File::Find::find({wanted => \&wanted}, 't');
     sub wanted {
        my ($dev,$ino,$mode,$nlink,$uid,$gid);
        next unless (($dev,$ino,$mode,$nlink,$uid,$gid) = lstat($_));
        push @FOUND,$File::Find::name if -T $_;
     }
+    for my $dir (@{$OPT{-r}}) {
+      File::Find::find({wanted => \&wanted}, $dir);
+    }#endfor
     push @hold,@FOUND if @FOUND;
   }#endif
   # rcm: @hold may contain duplicate filenames, remove them here
@@ -633,6 +644,11 @@ when scanning. Aka B<-o>.
 =item B<--quiet>
 
 Quiet mode. Aka B<-q>.
+
+=item B<--recursive> I<DIRECTORY>
+
+Recursively search I<DIRECTORY> looking for files with placeholders.
+Aka B<-r>.
 
 =item B<--verbose>
 
