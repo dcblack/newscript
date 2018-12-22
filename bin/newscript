@@ -1,16 +1,17 @@
 #!/usr/bin/perl
-    eval 'exec /usr/bin/perl -S $0 ${1+"$@"}'
-        if 0; #$running_under_some_shell
+eval 'exec /usr/bin/perl -S $0 ${1+"$@"}'
+  if 0;#running_under_some_shell
+
 # vim600:tw=72:syntax=perl:fmr=<<<,>>>
 #
 # @(#)$Info: new - create a new set of skeleton files from templates $
 # @(#)$Copyright: (C) 2003-2007 ESLX Inc. $
 # @(#)$Copyright: (C) 2009-2010 XtremeEDA Corporation. $
-# @(#)$Copyright: (C) 2012      David C Black. $
+# @(#)$Copyright: (C) 2012-2018 David C Black. $
 
 # @(#)$Licensing: Apache License, Version 2.0 $
-# @(#)$Email: <dcblack@hldwizard.com>. $
-# @(#)$Id: new 1165 2011-02-07 11:59:29Z dcblack $
+# @(#)$Email: <dcblack@mac.com>. $
+# @(#)$Id: newscript,v 1.10 2018/12/22 11:13:33 dcblack Exp $
 
 # NOTE: This file is both the executable and a perl module for external use.
 #       Simply, rename or provide an appropriate symbolic link, NewScript.pm, if
@@ -26,23 +27,25 @@ use File::Find ();
 #use File::Path qw(make_path remove_tree);
 use File::Path qw(mkpath rmtree);
 use Sys::Hostname;
-use Cwd;
+use Cwd qw(getcwd realpath);
 our $orig_dir = &getcwd();
 use FindBin qw($RealBin $RealScript);
 our @if;
+our @for; # LIFO stack for current for-loop list-name
+our %for; # contains for-loop contents indexed by list-name
 our $optional;
-our $revn = 1.7; #< manually update
+our $revn = '1.10'; #< manually update
 
 # Setup package for export #{{{
 use Exporter   ();
 our ($VERSION,@ISA,@EXPORT,@EXPORT_OK,%EXPORT_TAGS,@EXPORTS);
 $VERSION = do { my @r = (qq{Revision: $revn } =~ /\d+/g); sprintf "%d."."% 02d" x $#r, @r }; # must be all one line, for MakeMaker
 @ISA         = qw(Exporter);
-@EXPORT      = qw(&save_existing &exe &recurse_placeholder
+@EXPORT      = qw(&save_existing &prefix &recurse_placeholder
                   &recurse_placeholder &help &addargs &readargs
                  );
 my %export_map = (
-  'all'   => [ qw(&save_existing &exe &recurse_placeholder
+  'all'   => [ qw(&save_existing &prefix &recurse_placeholder
                   &recurse_placeholder &help &addargs &readargs
                  ),
              ],
@@ -76,7 +79,7 @@ use vars qw/*name *dir *prune/;
 *dir    = *File::Find::dir;
 *prune  = *File::Find::prune;
 
-our $auth = 'David C Black <dcblack@hldwizard.com>';
+our $auth = 'David C Black <dcblack@mac.com>';
 our $tool = $RealScript;
 our $TOOL = uc $tool;
 our $user = getlogin || (getpwuid($<))[0] || "Intruder!";
@@ -116,6 +119,7 @@ our
 , $name
 , %REPL
 , %USED
+, %DFND # source of definitions
 , %FS
 , %CMND_LN
 , @PRECIOUS
@@ -357,7 +361,7 @@ sub newrc { # used with File::Find
 ###############################################################################
 # List brief syntax and all matching template subdirectories.
 ###############################################################################
-sub SYNOPSIS { #<<<2
+sub Synopsis { #<<<2
   my $PAGER = 'more';
   $PAGER = $ENV{'PAGER'} if exists $ENV{'PAGER'};
   my $MORE_FH;
@@ -398,6 +402,7 @@ EOT
   my $cols = 0;
   my $bullet;
   TEMPLATEDIR: for my $dir (@template_list) {
+    $dir = realpath $dir;
     next unless -d $dir and -r $dir;
     if ($dirpatts) { # Allow pattern matching for listing
       my $matches = 0;
@@ -437,7 +442,7 @@ EOT
       @FOUND = ();
       File::Find::find({wanted => \&counted, follow => 1}, $template_path);
       my ($dc,$fc) = (-1,0);
-      for my $p (@FOUND) {
+      for my $p (sort @FOUND) {
         #print "DEBUG: $p\n";
         if (-d $p) { $dc++; } else { $fc++; }
       }#endfor
@@ -493,7 +498,7 @@ EOT
   close $MORE_FH;
   exit 0 if exists $OPT{-ls} or exists $OPT{-list} or exists $OPT{-quiet};
   exit 1;
-}#endsub SYNOPSIS
+}#endsub Synopsis
 
 ###############################################################################
 sub INFO { #<<<2
@@ -524,7 +529,7 @@ sub INFO { #<<<2
         $success = 1;
       } elsif (-r "$template_dir/$rc" and -T "$template_dir/$rc") {
         my $TMPL_FH;
-        open $TMPL_FH,q{<},"$template_dir/$rc" 
+        open $TMPL_FH,q{<},"$template_dir/$rc"
           or die "FATAL: Unable to read $template_dir/$rc!?\n";
         my @TEXT;
         if (not $once) {
@@ -571,11 +576,10 @@ sub PARAMETERS { #<<<2
     File::Find::find({wanted => \&newrc, follow => 1}, $rootdir);
     my @templates = @FOUND;
     for my $template (@templates) {
-      next unless $template eq $kind;
-      my $template_dir = "$rootdir/$template";
-      next unless -d $template_dir;
+      next unless $template =~ m{\b$kind$};
+      next unless -d $template;
       @FOUND = ();
-      File::Find::find({wanted => \&everything, follow => 1}, $template_dir);
+      File::Find::find({wanted => \&everything, follow => 1}, $template);
       my @files = @FOUND;
       PFILE: for my $i (0..$#files) {
         my $template = $files[$i];
@@ -611,7 +615,11 @@ sub PARAMETERS { #<<<2
       }#endfor
     }#endfor
   }#endfor
-  printf "Parameters for $kind:\n  %s=\n",join("=\n  ",sort keys %PH);
+  if( exists $OPT{-quiet} ) {
+    printf "%s=\n",join("=\n",sort keys %PH);
+  } else {
+    printf "Parameters for $kind:\n  %s=\n",join("=\n  ",sort keys %PH);
+  }#endif
   exit 1;
 }#endsub PARAMETERS
 
@@ -698,9 +706,9 @@ sub envsub { #<<<2
 }#endsub envsub
 
 ###############################################################################
-#sub exe { #<<<2
+#sub prefix { #<<<2
 our %warned;
-sub exe {
+sub prefix {
   my ($fn,$text) = @_;
   return $text if $fn eq '';
   if ($fn eq 'new') {
@@ -709,28 +717,48 @@ sub exe {
     chomp $text;
   } elsif ($fn eq 'qx') {
     $text =~ s/:/ /g;
-    $text = qx{$text};
+    my $qx = '$'.qq{text = qx{$text};};
+    eval $qx;
     chomp $text;
+  } elsif ($fn eq 'ap') {
+    $text =~ s{[.]app/$}{};
+    $text =~ s{.*/}{};
+  } elsif ($fn eq 'sp') {
+    $text =~ s{^\s+}{};
+    $text =~ s{\s+$}{};
+    $text =~ s{\s+}{\n$&};
   } elsif ($fn eq 'uc') {
     $text = uc $text;
   } elsif ($fn eq 'lc') {
     $text = lc $text;
   } elsif ($fn eq 'sc') {
     $text = uc(substr($text,0,1)).lc(substr($text,1));
+  } elsif ($fn eq 'cc') {
+    $text = lc $text;
+    my $la = qr{([[:lower:]])([[:alpha:]])};
+    while ($text =~ m{\b$la}) {
+      my $cc = (uc $1).$2;
+      $text =~ s{\b$la}{$cc};
+    }#endwhile
+    while ($text =~ m{_$la}) {
+      my $cc = (uc $1).$2;
+      $text =~ s{_$la}{$cc};
+    }#endwhile
   } elsif ($fn eq 'wc') {
     $text = lc $text;
-    while ($text =~ m{\b\l\w}) {
-      my $uc = uc $&;
-      $text = s{\b\l\w}{$uc};
+    my $la = qr{([[:lower:]])([[:alpha:]])};
+    while ($text =~ m{\b$la}) {
+      my $wc = (uc $1).$2;
+      $text =~ s{\b$la}{$wc};
     }#endwhile
-    while ($text =~ m{_\l\w}) {
-      my $uc = uc $&;
-      $text = s{_\l\w}{$uc};
+    while ($text =~ m{_$la}) {
+      my $wc = (uc $1).$2;
+      $text =~ s{_$la}{_$wc};
     }#endwhile
   } elsif ($fn eq 'sq') {
     while ($text =~ s{(\l\w) (\l\w)}{}) {
       my $repl = "$1_".uc($2);
-      $text = s{(\l\w) (\l\w)}{$repl};
+      $text =~ s{(\l\w) (\l\w)}{$repl};
     }#endwhile
     while ($text =~ s{[ /:\{\}\(\)]+}{_}) {}
     $text =~ s{_[Ff]or_}{4}g;
@@ -741,7 +769,7 @@ sub exe {
     $warned{$fn} = 1;
   }#endif
   return $text;
-}#endsub exe
+}#endsub prefix
 
 ###############################################################################
 sub recurse_placeholder { #<<<2
@@ -777,7 +805,7 @@ sub check_default { #<<<2
   my $line = $DEFAULT{$ph};
   if ($line =~ $phre) {
     my $dph = $1;
-    &check_default($dph,$lhe,$rhe,++$lvl);
+    &check_default($dph,$lhe,$rhe,$lvl+1);
     return unless exists $REPL{$dph};
     $line =~ s{$phre}{$REPL{$dph}};
   }
@@ -798,16 +826,15 @@ sub replace_placeholder { #<<<2
   #----------------------------------------------------------------------------
   # Quick return if no placeholders
   #----------------------------------------------------------------------------
-  my $phre = qr|$lhe
-                 (
-                  [\<]?
-                  [\?]?
-                  [\$]?
-                         \w[-[:word:]:=.]*?
-                  [\>\+\*]?
+  my $phre = qr{$lhe
+                 ([\<]?
+                 |[\?]?
+                 |[\$]?
+                 |\w[-[:word:]:=/.]*?
+                 |[\>\+\*]?
                  )
                 $rhe
-               |x;
+               }x;
 # print STDERR "DEBUG: phre='$phre'\n";
   goto SKIP unless $line =~ m{$phre};
   #----------------------------------------------------------------------------
@@ -815,10 +842,18 @@ sub replace_placeholder { #<<<2
   # and replace them with identifiable tags $;0$;, $;1$;, etc...
   #----------------------------------------------------------------------------
   my @placeholder = ();
+  my @ph_default = ();
   my $i = 0;
   my $t = sprintf("$;%d$;",$i);
+  my $ph_default;
+  my $cmnt;
   while ($line =~ s/$phre/$t/s) {
-    push @placeholder,$1;
+    $cmnt = $1;
+    $ph_default = undef;
+    $cmnt =~ s{:#:.+}{}; # Remove comment portion
+    $ph_default = $1 if $cmnt =~ s{:=:(.*)}{};
+    push @placeholder,$cmnt;
+    push @ph_default,$ph_default;
     $t = sprintf("$;%d$;",++$i);
   }#endwhile
   #----------------------------------------------------------------------------
@@ -830,7 +865,8 @@ sub replace_placeholder { #<<<2
   for my $i (0..$#placeholder) {
     $t = sprintf("$;%d$;",$i);
     $fn = '';
-    $ph = $fph = $placeholder[$i];
+    $ph = $fph  = $placeholder[$i];
+    $ph_default = $ph_default[$i];
     &check_default($ph,$lhe,$rhe);
     if ($fph =~ m{$ifs}) {
       ($fn,$ph) = ($`,$');
@@ -844,6 +880,9 @@ sub replace_placeholder { #<<<2
         last;
       }
     }
+    if ($fn eq 'set') {
+      # TBD
+    }#endif
     if ($fn =~ m{^(if|elsif|else|endif)$}) {
       #------------------------------------------------------------------------
       # Handle if-clause
@@ -921,9 +960,9 @@ sub replace_placeholder { #<<<2
       my $incfile = $ph;
       $incfile =~ s/[<>]//g;
       $optional = ($incfile =~ s/^[?]//);
-      $incfile = $ENV{substr($incfile,1)} 
+      $incfile = $ENV{substr($incfile,1)}
         if substr($ph,0,1) eq '$' and exists $ENV{substr($incfile,1)};
-      $incfile = $REPL{$incfile} 
+      $incfile = $REPL{$incfile}
         if exists $REPL{$incfile} and not -r $incfile;
       $incfile = $FS{$rfile}{$incfile}
         if defined $rfile and $rfile ne '' and exists $FS{$rfile}{$incfile};
@@ -963,7 +1002,7 @@ sub replace_placeholder { #<<<2
       #------------------------------------------------------------------------
       if (exists $ENV{substr($ph,1)}) {
         my $repl = $ENV{substr($ph,1)};
-        $repl = &exe($fn,$repl);
+        $repl = &prefix($fn,$repl);
         $line =~ s/$t/$repl/;
         ++$repl_c;
       } else { # Leave untouched
@@ -981,7 +1020,7 @@ sub replace_placeholder { #<<<2
       } elsif (ref $repl eq 'ARRAY') {
         $repl = $repl->[0];
       }#endif
-      $repl = &exe($fn,$repl);
+      $repl = &prefix($fn,$repl);
       $line =~ s/$t/$repl/;
       ++$repl_c;
     } elsif (exists $REPL{$ph}) {
@@ -994,7 +1033,7 @@ sub replace_placeholder { #<<<2
       } elsif (ref $repl eq 'ARRAY') {
         $repl = $repl->[0];
       }#endif
-      $repl = &exe($fn,$repl);
+      $repl = &prefix($fn,$repl);
       $line =~ s/$t/$repl/;
       ++$repl_c;
     } elsif (exists $DUPL{$ph}) {
@@ -1003,9 +1042,11 @@ sub replace_placeholder { #<<<2
       #------------------------------------------------------------------------
       my $repl = $DUPL{$ph};
       $ph =~ s/^$fn:// if $fn ne '';
-      $repl = &exe($fn,$repl);
+      $repl = &prefix($fn,$repl);
       $line =~ s/$t/$repl/;
       ++$repl_c;
+    } elsif (defined $ph_default) {
+      $line =~ s/$t/$ph_default/;
     } elsif ($ph =~ m/^[?]/ or $fn eq 'optional' and $ph) {
       #------------------------------------------------------------------------
       # Remove optional placeholders since not found
@@ -1020,12 +1061,12 @@ sub replace_placeholder { #<<<2
       #++$repl_c;
     } elsif ($fn eq 'new') {
       $ph =~ s/^$fn:// if $fn ne '';
-      my $repl = &exe($fn,$ph);
+      my $repl = &prefix($fn,$ph);
       $line =~ s/$t/$repl/;
       ++$repl_c;
     } elsif ($fn eq 'qx') {
-      $ph =~ s/^$fn:// if $fn ne '';
-      my $repl = &exe($fn,$ph);
+      $ph =~ s/^$fn://;
+      my $repl = &prefix($fn,$ph);
       $line =~ s/$t/$repl/;
       ++$repl_c;
     } elsif ($fn eq 'comment') {
@@ -1065,6 +1106,7 @@ sub help { #<<<2
 ###############################################################################
 sub addargs { # Parses command-line arguments <<<2
   my @hold = ();
+  my $source = shift(@_);
   return @hold unless @_;
   ARG: while (@_) {
     my $arg = shift(@_);
@@ -1072,14 +1114,14 @@ sub addargs { # Parses command-line arguments <<<2
     # STDOUT
     #--------------------------------------------------------------------------
     if ($arg eq '-') {
-      $OPT{-out} = $arg;                   
-      $OPT{-quiet} = 1;                   
+      $OPT{-out} = $arg;
+      $OPT{-quiet} = 1;
       #open $TARGET_FH,q{>},'-' or die "Unable to open stdout!?\n";
     #--------------------------------------------------------------------------
     # Allow clobber
     #--------------------------------------------------------------------------
     } elsif ($arg eq '--clobber'      or $arg eq '-c') {
-      $OPT{-clobber} = 1;                   
+      $OPT{-clobber} = 1;
     #--------------------------------------------------------------------------
     # Directory target
     #--------------------------------------------------------------------------
@@ -1088,7 +1130,7 @@ sub addargs { # Parses command-line arguments <<<2
     #--------------------------------------------------------------------------
     # Display path to template
     #--------------------------------------------------------------------------
-    } elsif ($arg eq '--path') {
+    } elsif ($arg eq '--path'         or $arg eq '-P') {
       $OPT{-path} = 1;
     #--------------------------------------------------------------------------
     # Edit
@@ -1110,18 +1152,24 @@ sub addargs { # Parses command-line arguments <<<2
     #--------------------------------------------------------------------------
     # Hard links
     #--------------------------------------------------------------------------
-    } elsif ($arg =~ m{^-{1,2}hard(?:-)?(?:link(?:s)?)?$} or $arg eq '-h') {
+    } elsif ($arg =~ m{^-{1,2}hard(?:-)?(?:link(?:s)?)?$} or $arg eq '-H') {
       $OPT{-hard} = 1;
     #--------------------------------------------------------------------------
     # Allow directory merge
     #--------------------------------------------------------------------------
     } elsif ($arg eq '--merge'      or $arg eq '-m') {
-      $OPT{-merge} = 1;                   
+      $OPT{-merge} = 1;
     #--------------------------------------------------------------------------
     # Ignore global .newrc files -- still uses template specific files
     #--------------------------------------------------------------------------
     } elsif ($arg =~ m{^-{1,2}norc$}) {
-      $OPT{-norc} = 1;                   
+      $OPT{-norc} = 1;
+    #--------------------------------------------------------------------------
+    # Read commands from file
+    #--------------------------------------------------------------------------
+    } elsif ($arg eq '--read_commands'          or $arg eq '-rc') {
+      my $rcfile = shift(@_);
+      &readargs($rcfile);
     #--------------------------------------------------------------------------
     # Regular expression
     #--------------------------------------------------------------------------
@@ -1130,9 +1178,14 @@ sub addargs { # Parses command-line arguments <<<2
       $file_lhe = shift @_;
       $file_rhe = shift @_;
     #--------------------------------------------------------------------------
+    # Source of definitions (rarely used)
+    #--------------------------------------------------------------------------
+    } elsif ($arg =~ m{^--source=}) {
+      $source = $';
+    #--------------------------------------------------------------------------
     # Soft links
     #--------------------------------------------------------------------------
-    } elsif ($arg eq '--soft'         or $arg eq '-s') {
+    } elsif ($arg eq '--soft'         or $arg eq '-S') {
       delete $OPT{-hard} if exists $OPT{-hard};
     #--------------------------------------------------------------------------
     # Version
@@ -1149,12 +1202,12 @@ sub addargs { # Parses command-line arguments <<<2
     # Not really
     #--------------------------------------------------------------------------
     } elsif ($arg eq '--notreally'    or $arg eq '-n') {
-      $OPT{-notreally} = 1;                   
+      $OPT{-notreally} = 1;
     #--------------------------------------------------------------------------
     # Output file for skeleton
     #--------------------------------------------------------------------------
     } elsif ($arg eq '--out'          or $arg eq '-o') {
-      $OPT{-out} = shift(@_);                   
+      $OPT{-out} = shift(@_);
       if ($OPT{-out} ne '-') {
         open $TARGET_FH,q{>},"$OPT{-out}" or die "Unable to write $OPT{-out}!?\n";
       }#endif
@@ -1163,36 +1216,41 @@ sub addargs { # Parses command-line arguments <<<2
     #--------------------------------------------------------------------------
     } elsif ($arg eq '-ls') {
       $OPT{-ls} = 1;
-      &SYNOPSIS(@hold,@_);
+      &Synopsis(@hold,@_);
       exit;
     #--------------------------------------------------------------------------
     # List possibilities
     #--------------------------------------------------------------------------
     } elsif ($arg eq '--list'         or $arg eq '-l') {
       $OPT{-list} = 1;
-      &SYNOPSIS(@hold,@_);
+      &Synopsis(@hold,@_);
       exit;
     #--------------------------------------------------------------------------
     # Parameter display
     #--------------------------------------------------------------------------
     } elsif ($arg eq '--placeholders' or $arg eq '-p') {
     #--------------------------------------------------------------------------
-      $OPT{-placeholders} = 1;                   
+      $OPT{-placeholders} = 1;
+    #--------------------------------------------------------------------------
+    } elsif ($arg eq '-pq' or $arg eq '-qp') {
+    #--------------------------------------------------------------------------
+      $OPT{-placeholders} = 1;
+      $OPT{-quiet} = 1;
     #--------------------------------------------------------------------------
     # Quiet
     #--------------------------------------------------------------------------
     } elsif ($arg eq '--quiet'        or $arg eq '-q') {
-      $OPT{-quiet} = 1;                   
+      $OPT{-quiet} = 1;
     #--------------------------------------------------------------------------
     # Raw
     #--------------------------------------------------------------------------
     } elsif ($arg eq '--raw') {
-      $OPT{-raw} = 1;                   
+      $OPT{-raw} = 1;
     #--------------------------------------------------------------------------
     # Test
     #--------------------------------------------------------------------------
-    } elsif ($arg eq '--test'         or $arg eq '-t') {
-      $OPT{-test} = 1;                   
+    } elsif ($arg eq '--test'         or $arg eq '-T') {
+      $OPT{-test} = 1;
     #--------------------------------------------------------------------------
     # Verbosity
     #--------------------------------------------------------------------------
@@ -1300,10 +1358,11 @@ sub addargs { # Parses command-line arguments <<<2
           next ARG;
         }#endif
         warn "Duplicate replacement $t overwritten!?\n"
-          if exists $REPL{$t} 
+          if exists $REPL{$t}
              and (not $CMND_LN or ($CMND_LN == 0 and exists $CMND_LN{$t}{$;}));
         $REPL{$t} = $r unless exists $CMND_LN{$t} and $CMND_LN != 0;
         $USED{$t} = 0;
+        $DFND{$t} = $source;
         $CMND_LN{$t}{$;} = 1 if $CMND_LN == 0;
       }#endif
     #--------------------------------------------------------------------------
@@ -1369,7 +1428,7 @@ sub readargs { # Parse .newrc files <<<2
   }#endwhile
   close $RC_FH;
   ++$CMND_LN;
-  @args = &addargs(@args) if @args;
+  @args = &addargs($file,@args) if @args;
   --$CMND_LN;
   return @args;
 }#endsub readargs
@@ -1383,7 +1442,7 @@ for my $rcdir (split(m{ },qq(/etc $ENV{HOME} .))) {
   &readargs("$rcdir/$rc");
 }#endfor
 if (exists $ENV{$tool_var}) {
-  &addargs(split(m{\s+},$ENV{$tool_var}));
+  &addargs('Environment',split(m{\s+},$ENV{$tool_var}));
 }#endif
 
 ###############################################################################
@@ -1396,15 +1455,15 @@ sub main { #{{{
 our @ORIG = @ARGV;
 ARGV: {
   $CMND_LN = 0;
-  @ARGV = &addargs(@ARGV);
+  @ARGV = &addargs('Command-line',@ARGV);
   $CMND_LN = 1;
   die "FATAL: Missing TEMPLATEPATH!?\n" unless @template_list or exists $OPT{-file};
-  &SYNOPSIS(@ARGV) if scalar @ARGV == 0 # no arguments
+  &Synopsis(@ARGV) if scalar @ARGV == 0 # no arguments
                    or "@ARGV" =~ m![\{\}\*\?\[\]\\]! or grep(m{/$},@ARGV);
   &PARAMETERS($ARGV[0]) if @ARGV == 1 and exists $OPT{-placeholders};
   &TEST($ARGV[0]) if @ARGV == 1 and exists $OPT{-test};
   &INFO($ARGV[0]) if @ARGV == 1;
-# die "FATAL: Too many arguments!?\n" if scalar @ARGV > 2;
+  die "FATAL: Too many arguments!?\n" if scalar @ARGV > 2;
   die "FATAL: Missing required arguments!?\n" unless scalar @ARGV >= 2;
   die "FATAL: Directory $OPT{-dir} doesn't exist!?\n" if defined $OPT{-dir} and not -d $OPT{-dir};
   ($kind,@name) = @ARGV;
@@ -1436,6 +1495,7 @@ NAMES: for my $name (@name) {
   our $mm = sprintf("%02d",$date[4]+1);
   our $dd = sprintf("%02d",$date[3]);
   our @das = qw(Su Mo Tu We Th Fr Sa);
+  our $weekday = $das[$date[6]];
   our $wd = sprintf("%s",$das[$date[6]]);
   our $yda = sprintf("%03d",$date[7]);
   our $yw = sprintf("%02d",int($date[7]/7)+1);
@@ -1443,7 +1503,7 @@ NAMES: for my $name (@name) {
   our $mdy4 = sprintf("%02d/%02d/%04d",$date[4]+1,$date[3],$year);
   our $yymmdd = sprintf("%02d%02d%02d",$year%100,$date[4]+1,$date[3]);
   our $y4mmdd = sprintf("%04d%02d%02d",$year,$date[4]+1,$date[3]);
-  our @mos = qw(Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec);
+  our @mos = qw(January February March April May June July August September October November December);
   my ($hour,$minute) = ($date[2],$date[1]);
   my $pm = ($hour > 11)?"PM":"AM";
   our $mh = sprintf("%02d",$hour); # military hour
@@ -1451,32 +1511,38 @@ NAMES: for my $name (@name) {
   $hour = $hour % 12;
   $hour = 12 if $hour == 0;
   our $hh = sprintf("%02d",$hour);
-  our $ymdhm = sprintf("%04d %3s %02d %d:%02d %s",$year,$mos[$date[4]],$date[3],$hour,$minute,$pm);
+  our $month = $mos[$date[4]];
+  our $mmm = substr($month,0,3);
+  our $ymdhm = sprintf("%04d %3.3s %02d %d:%02d %s",$year,$mmm,$date[3],$hour,$minute,$pm);
 
   # Predefined
-  $REPL{'NAME'}   = $name;
-  $REPL{'KIND'}   = $kind;
-  $REPL{'DATE'}   = $date;
-  $REPL{'LX'}     = 'lx';
-  $REPL{'XR'}     = 'xr';
-  $REPL{'MDY2'}   = $mdy2;
-  $REPL{'MMDDY4'} = $mdy4;
-  $REPL{'YYMMDD'} = $yymmdd;
-  $REPL{'Y4MMDD'} = $y4mmdd;
-  $REPL{'YMDHM'}  = $ymdhm;
-  $REPL{'YEAR'}   = $year;
-  $REPL{'YY'}     = $year % 100;
-  $REPL{'MM'}     = $mm;
-  $REPL{'WD'}     = $wd;
-  $REPL{'YD'}     = $yda;
-  $REPL{'YW'}     = $yw;
-  $REPL{'DD'}     = $dd;
-  $REPL{'MH'}     = $mh;
-  $REPL{'HH'}     = $hh;
-  $REPL{'MN'}     = $mn;
-  $REPL{'PM'}     = $pm;
-  $REPL{'USER'}   = $user;
-  $REPL{'HOST'}   = hostname;
+  $REPL{'NAME'}    = $name;
+  $REPL{'KIND'}    = $kind;
+  $REPL{'DATE'}    = $date;
+  $REPL{'LX'}      = 'lx';
+  $REPL{'XR'}      = 'xr';
+  $REPL{'MDY2'}    = $mdy2;
+  $REPL{'MMDDY4'}  = $mdy4;
+  $REPL{'YYMMDD'}  = $yymmdd;
+  $REPL{'Y4MMDD'}  = $y4mmdd;
+  $REPL{'YMDHM'}   = $ymdhm;
+  $REPL{'YEAR'}    = $year;
+  $REPL{'YY'}      = $year % 100;
+  $REPL{'MM'}      = $mm;
+  $REPL{'MMM'}     = $mmm;
+  $REPL{'MONTH'}   = $month;
+  $REPL{'WD'}      = $wd;
+  $REPL{'WEEKDAY'} = $weekday;
+  $REPL{'YD'}      = $yda;
+  $REPL{'YW'}      = $yw;
+  $REPL{'DD'}      = $dd;
+  $REPL{'DAY'}     = $date[3];
+  $REPL{'MH'}      = $mh;
+  $REPL{'HH'}      = $hh;
+  $REPL{'MN'}      = $mn;
+  $REPL{'PM'}      = $pm;
+  $REPL{'USER'}    = $user;
+  $REPL{'HOST'}    = hostname;
   $REPL{'NEW_VERSION'} = $revn;
   $REPL{'NEW_ARGV'} = "$RealScript @ORIG";
   $REPL{'ALWAYS'} = '1';
@@ -1488,6 +1554,7 @@ NAMES: for my $name (@name) {
   $REPL{'Log'}      = '$'.'Log$';
   $REPL{'RCSfile'}  = '$'.'RCSfile$';
   $REPL{'Name'}     = '$'.'Name$';
+  $REPL{'File'}     = '$'.'File$';
   $REPL{'Revision'} = '$'.'Revision$';
   $REPL{'Source'}   = '$'.'Source$';
   $REPL{'State'}    = '$'.'State$';
@@ -1717,7 +1784,7 @@ NAMES: for my $name (@name) {
 
 # Warn of unused templates
 for my $un (sort keys %USED) {
-  printf "WARNING: Never used provided replacement $un\n" unless $USED{$un} > 0 or $OPT{-quiet} or exists $OPTIONAL{$un};
+  printf "WARNING: Never used provided replacement $un defined $DFND{$un}\n" unless $USED{$un} > 0 or $OPT{-quiet} or exists $OPTIONAL{$un} or $DFND{$un} =~ m{$rc};
 }#endfor
 
 exit 0; # Done #<<<1
@@ -1757,7 +1824,7 @@ B<new> - create a I<new> set of files from templates
 =head1 SYNOPSIS
 
 B<new> --help ####### provides this help
-                    
+
 B<new> -l  ########## display list of available templates
 
 B<new> I<{:KIND:}> ## display info about specified type
@@ -1773,17 +1840,19 @@ B<new> [I<{:OPTIONS:}>] I<{:IDENTIFIER=VALUE:}...> I<{:KIND:}> I<{:NAME:}>
  -edit [E]         launch (E)ditor afterwards (-e)
  --file F          use (F)ile as template (-f)
  --force           override requirements (see --require)
- --hard            treat symbolic links as real files
+ --hard            treat symbolic links as real files (-H)
  --merge           merge with existing directories/files
  -notreally        test run (-n)
  --out F           output to (F)ile (-o)
- -p                list unique placeholders, --placeholders
+ --placeholders    list unique placeholders, (-p)
+ --path            show path to template (-P)
  --quiet           only report errors (-q)
+ -rc FILE          read command-line arguments from FILE
  --re L R          specify left & right placeholders
- --soft            treat symbolic links as links
+ --soft            treat symbolic links as links (-S)
  --require R       specifies requirements (see OPTIONS for details)
- --templatepath L  use directory (L)ist instead of $TEMPLATEPATH
- --test            template test (-t) (see OPTIONS for details)
+ --templatepath L  use directory (L)ist instead of $TEMPLATEPATH (-t)
+ --test            template test (-T) (see OPTIONS for details)
  --verbose         display more information (-v)
  --version         display the version number of this script
 
@@ -1811,7 +1880,7 @@ Type P2 is replaced with the contents of the corresponding environment
 variable if it exists.
 
 Type P3 specifies a filename, and is similar to the B<#include>
-facilities of some languages.  The identifier must resolve to a readable 
+facilities of some languages.  The identifier must resolve to a readable
 filename.
 
 Type P4 specifies a filaname via an environment variable. It is simply
@@ -1823,24 +1892,36 @@ all definitions of the identifier have been used. It requires at
 least one definition.
 
 A small extension to the above syntax allows for a special prefix
-modifier with the format {:MODIFIER:IDENTIFIER:}, where modifier may be
+modifier with the format {:PREFIX:IDENTIFIER:}, where PREFIX may be
 any of:
 
  uc      => transform resultant text to all UPPERCASE
  lc      => transform resultant text to all lowercase
  sc      => transform resultant text to Sentence case.
  wc      => transform resultant text to Word Case
+ cc      => transform resultant text to Camel Case
  sq      => squeeze text to a legal linux filename
+ sp      => split text on whitespace to separate lines
  include => use resultant text as a filename for inclusion (same as
             {:<IDENTIFIER:>:}.
  new     => invoke new on the text after changing all ':' to ' '
-            (e.g. {:new:pod:this:} would insert output from 'new pod 
+            (e.g. {:new:pod:this:} would insert output from 'new pod
              this' in place of text.)
  if      => part of if-elsif-else-endif construct described separately
  elsif   => part of if-elsif-else-endif construct described separately
  else    => part of if-elsif-else-endif construct described separately
  endif   => part of if-elsif-else-endif construct described separately
+ for     => part of for-endfor construct described separately
+ endfor  => part of for-endfor construct described separately
  comment => completely ignores IDENTIFIER
+
+Additionally, there are a few suffix modifiers with the formats as follows:
+
+ {:IDENTIFIER:=:DEFAULT_VALUE:#:IDENTIFIER_COMMENT:}
+
+Default values may not contain the text ':#:'. Default values receive no
+warning if they are not overridden. In many cases, it is better to do
+this in the RC file.
 
 Placeholders without a replacement value are left untouched, and
 a warning is issued.
@@ -1874,43 +1955,43 @@ Several RCS keywords are predefined.
  {:Id:}          $ Id$
  {:Header:}      $ Header$
 
-=item {:DATE:} 
+=item {:DATE:}
 
 Current date in verbose format.
 
-=item {:TDIR:} 
+=item {:TDIR:}
 
 The target directory name for the template being created.
 
-=item {:FDIR:} 
+=item {:FDIR:}
 
 The full directory name containing the file being created.
 
-=item {:FILE:} 
+=item {:FILE:}
 
 The base filename of the file being created.
 
-=item {:HOST:} 
+=item {:HOST:}
 
 The name of the host executing this script.
 
-=item {:MDY2:} 
+=item {:MDY2:}
 
 Current date in MM/DD/YY format. Useful for change logs.
 
-=item {:MMDDY4:} 
+=item {:MMDDY4:}
 
 Current date in MM/DD/YYYY format. Useful for change logs.
 
-=item {:YYMMDD:} 
+=item {:YYMMDD:}
 
 Current date in YYMMDD format. Useful for filenames.
 
-=item {:Y4MMDD:} 
+=item {:Y4MMDD:}
 
 Current date in YYYYMMDD format. Useful for filenames.
 
-=item {:YMDHM:} 
+=item {:YMDHM:}
 
 Current date in 'YYYY MMM DD HH:MM am/pm' format.
 
@@ -1942,7 +2023,7 @@ Current AM or PM aspect of time.
 
 Current minute (00-59).
 
-=item {:NAME:} 
+=item {:NAME:}
 
 The corresponding command-line argument.
 
@@ -1958,13 +2039,13 @@ The value of B<NAME> will be I<counter>.
 
 Version of the B<new> (this) script.
 
-=item {:PATH:} 
+=item {:PATH:}
 
-The full pathname of the file being created. 
+The full pathname of the file being created.
 
-=item {:RDIR:} 
+=item {:RDIR:}
 
-The relative directory name of the file being created. 
+The relative directory name of the file being created.
 
 =item {:USER:}
 
@@ -2017,10 +2098,22 @@ is specified. This means that if a template contains symbolic links, the
 target will contain symbolic links. Note that placeholders in the both
 the name of the link itself, and the pointing text are replaced.
 
-=head2 if-elsif-else-endif
+=head2 set, if-elsif-else-endif, and for-endfor
 
-There remains one other less used, but powerful construct. This is
-the B<if-elsif-else-endif> construct. It's syntax is as follows:
+There remain several other less used, but powerful constructs.
+These are potentially dangerous and you can get very messed up
+with indiscrimate use.
+
+First is the B<set> construct that basically allows you to assign a
+new value to a placeholder during execution. This has limited uses.
+The syntax is:
+
+  {:set:IDENTIFIER:REPLACEMENT:}
+
+The replacement may contain anything except a newline '\n' or the
+placeholder closing sequence (default ':}').
+
+Next is the B<if-elsif-else-endif> construct. It's syntax is as follows:
 
   {:if:IDENTIFIER1:}
   TEXT1
@@ -2052,6 +2145,23 @@ Examples:
   {:endif:FIELD1:}
 
 WARNING: Overuse of this construct can make templates hard to debug.
+
+=head2 B<EXPERIMENTAL>
+
+Next there is the B<for>-loop construct as follows:
+
+  {:for:IDENTIFIER:}
+  TEXT << may include {:forvar:IDENTIFIER:}
+  {:endfor:IDENTIFIER:}
+
+This splits the text contents of the {:IDENTIFIER:} into an internal list using
+the word separator (-ws option). This is equivalent to Perl's @list=split(m{WS},{:IDENTIFIER:}).
+Then the text between the matching B<for>/B<endfor> is repeated with {:forvar:IDENTIFIER:} taking
+on each element of the resultant list.
+
+B<for>-loops may be nested; however, the {:IDENTIFIER:} must be unique.
+
+Note that the word separator may be changed using {:set:WS::}.
 
 =head1 OPTIONS
 
@@ -2168,7 +2278,7 @@ with _harness in its name:
 
  --require /sim/harness/[^/]+_harness$
 
-To require a file named Makefile or makefile exists under the target 
+To require a file named Makefile or makefile exists under the target
 directory (uses glob wildcards):
 
   --require -e=[Mm]akefile
@@ -2177,6 +2287,10 @@ To require a readable file named README exists under the target
 directory (uses glob wildcards):
 
  --require -r=README{,.txt}
+
+=item B<--path>
+
+List the full file path location of the template directory used.
 
 =item B<--soft>
 
@@ -2214,16 +2328,16 @@ Displays the program name, version and exits. Aka B<-V>.
 =head1 FILES
 
 The filename B<.newrc> provides startup information. The
-following directories are searched in order: B</etc>, B<$HOME>, 
-B<./> and the matching I<template> directories. Command-line 
+following directories are searched in order: B</etc>, B<$HOME>,
+B<./> and the matching I<template> directories. Command-line
 options may be specified one per line in the B<.newrc> files.
 
 One frequently used directive ensures that a
-template is used correctly: B<--require>. 
+template is used correctly: B<--require>.
 
 Additionally, B<.newrc> files can provide documentation (i.e. help)
 for templates. This is accomplished one of two ways. Either include
-Perl POD format (starts with =pod and ends after =cut) or use 
+Perl POD format (starts with =pod and ends after =cut) or use
 special comments as follows.
 
 A short one-line description should be provided with a comment of
@@ -2235,7 +2349,7 @@ The above applies to perlpod as well. For the longer description,
 the text is contained within comments that
 begin with <pound><colon> (i.e. #:). For example:
 
- #: This is potential documentation for a .newrc file under a 
+ #: This is potential documentation for a .newrc file under a
  #: template
 
 The filename B<.newt> is optional, and is the name of a script that
@@ -2252,7 +2366,7 @@ B<NEWRC> specifies default arguments processed after B<.newrc>.
 
 =head1 EXAMPLES
 
-Assume a directory 'systemc' exists within a directory in the 
+Assume a directory 'systemc' exists within a directory in the
 template search path. Assume the directory contains two files,
 lxNAMExr.h and lxNAMExr.cpp. Thus the directory might look like:
 
@@ -2303,7 +2417,7 @@ Assume .newrc contains
   #
   #: Provides two files for a simple SystemC design
   #: with two files:
-  #: 
+  #:
   #: - lxNAMExr.h
   #: - lxNAMExr.cpp
   #:
@@ -2338,11 +2452,10 @@ Results in two new files created as follows:
      {:YOUR_CODE_HERE:}
    }
  }
- /* This file is confidential and proprietary.
- */
- //END $Id; counter.cpp 1093 2010-04-16 13:07:25Z dcblack $
 
 =head1 COPYRIGHT/LICENSE
+
+Copyright (C) 2018 Doulos Inc. All rights reserved.
 
 Copyright (C) 2003-2007 ESLX Inc. All rights reserved.
 
@@ -2364,6 +2477,6 @@ limitations under the License.
 
 =head1 AUTHOR
 
-David C Black <dcblack@hldwizard.com>
+David C Black <dcblack@mac.com>
 
 =cut
