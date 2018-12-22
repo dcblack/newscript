@@ -1,36 +1,36 @@
-a newscript-1.9/README.txt
-a newscript-1.9/bin
-a newscript-1.9/bin/newscript
-a newscript-1.9/bin/phred
-a newscript-1.9/man
-a newscript-1.9/man/man1
-a newscript-1.9/man/man1/newscript.1
-a newscript-1.9/man/man1/phred.1
-a newscript-1.9/templates
-a newscript-1.9/templates/apache.txt
-a newscript-1.9/templates/bash
-a newscript-1.9/templates/boiler
-a newscript-1.9/templates/cpp
-a newscript-1.9/templates/template
-a newscript-1.9/templates/vlog_ex
-a newscript-1.9/templates/vlog_ex/.newrc
-a newscript-1.9/templates/vlog_ex/lxNAMExr
-a newscript-1.9/templates/vlog_ex/lxNAMExr/bin
-a newscript-1.9/templates/vlog_ex/lxNAMExr/src
-a newscript-1.9/templates/vlog_ex/lxNAMExr/src/lxDUTxr_rtl.v
-a newscript-1.9/templates/vlog_ex/lxNAMExr/src/lxNAMExr_top.v
-a newscript-1.9/templates/vlog_ex/lxNAMExr/src/lxTESTxr_test.v
-a newscript-1.9/templates/vlog_ex/lxNAMExr/bin/run
-a newscript-1.9/templates/template/.newrc
-a newscript-1.9/templates/template/lxNAMExr
-a newscript-1.9/templates/template/lxNAMExr/.newrc
-a newscript-1.9/templates/cpp/.newrc
-a newscript-1.9/templates/cpp/lxNAMExr.cpp
-a newscript-1.9/templates/cpp/Makefile
-a newscript-1.9/templates/boiler/.newrc
-a newscript-1.9/templates/boiler/ABOUT_lxNAMExr.txt
-a newscript-1.9/templates/bash/.newrc
-a newscript-1.9/templates/bash/lxNAMExr
-newscript-1.9.tgz.sha
-newscript-1.9.tgz.md5
-newscript-1.9.tgz.asc
+a newscript-1.10/README.txt
+a newscript-1.10/bin
+a newscript-1.10/bin/newscript
+a newscript-1.10/bin/phred
+a newscript-1.10/man
+a newscript-1.10/man/man1
+a newscript-1.10/man/man1/phred.1
+a newscript-1.10/man/man1/newscript.1
+a newscript-1.10/templates
+a newscript-1.10/templates/apache.txt
+a newscript-1.10/templates/template
+a newscript-1.10/templates/boiler
+a newscript-1.10/templates/bash
+a newscript-1.10/templates/vlog_ex
+a newscript-1.10/templates/cpp
+a newscript-1.10/templates/cpp/Makefile
+a newscript-1.10/templates/cpp/.newrc
+a newscript-1.10/templates/cpp/lxNAMExr.cpp
+a newscript-1.10/templates/vlog_ex/.newrc
+a newscript-1.10/templates/vlog_ex/lxNAMExr
+a newscript-1.10/templates/vlog_ex/lxNAMExr/bin
+a newscript-1.10/templates/vlog_ex/lxNAMExr/src
+a newscript-1.10/templates/vlog_ex/lxNAMExr/src/lxTESTxr_test.v
+a newscript-1.10/templates/vlog_ex/lxNAMExr/src/lxDUTxr_rtl.v
+a newscript-1.10/templates/vlog_ex/lxNAMExr/src/lxNAMExr_top.v
+a newscript-1.10/templates/vlog_ex/lxNAMExr/bin/run
+a newscript-1.10/templates/bash/.newrc
+a newscript-1.10/templates/bash/lxNAMExr
+a newscript-1.10/templates/boiler/ABOUT_lxNAMExr.txt
+a newscript-1.10/templates/boiler/.newrc
+a newscript-1.10/templates/template/.newrc
+a newscript-1.10/templates/template/lxNAMExr
+a newscript-1.10/templates/template/lxNAMExr/.newrc
+newscript-1.10.tgz.sha
+newscript-1.10.tgz.md5
+newscript-1.10.tgz.asc
