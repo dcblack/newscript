@@ -1,5 +1,5 @@
 DESCRIPTION
-===========
+-----------
 
 These files extracted from the tarball containing this `README.txt` file provide
 a minimal installation for the scripts `new` and `phred`. You will find the
@@ -12,8 +12,9 @@ TEMPLATEPATH environment variable to point to the templates/ directory. The
 accompanying whitepaper describes the scripts in more detail.
 
 MANIFEST
-========
+--------
 
+```
     +- README.txt
     +- bin/
     |   +- newscript
@@ -48,16 +49,17 @@ MANIFEST
     |               +- lxNAMExr_top.v
     |               +- lxTESTxr_test.v
     +- Whats_new.pdf
+```
 
 REQUIREMENTS
-============
+------------
 
 These scripts assume a relatively recent version of Perl 5 and have been
 tested under Linux and Mac OS X. In theory, they may work under Windows, but
 your mileage may vary.
 
 BUGS
-====
+----
 
 Please send bug reports to <dcblack@mac.com> with the understanding
 that there are no warranties as to the fitness or condition of this code.
@@ -66,11 +68,11 @@ to contribute to this project, please send e-mail with description of your
 fix/enhancement and a git-merge.
 
 LICENSING
-=========
+---------
 
-Copyright:2003-2007 ESLX Inc. $
-Copyright 2003-2010 XtremeEDA Corporation
-Copyright 2012-2018 David C Black
+* Copyright:2003-2007 ESLX Inc. $
+* Copyright 2003-2010 XtremeEDA Corporation
+* Copyright 2012-2018 David C Black
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -84,4 +86,4 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
-END OF REAME.txt
+END OF README.md

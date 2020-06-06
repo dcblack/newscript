@@ -1,6 +1,6 @@
 #!/usr/bin/perl
-eval 'exec /usr/bin/perl -S $0 ${1+"$@"}'
-  if 0;#running_under_some_shell
+eval 'exec perl -S $0 ${1+"$@"}'
+  if 0;#running_under_some_shell;
 
 # vim600:tw=72:syntax=perl:fmr=<<<,>>>
 #
@@ -83,7 +83,7 @@ our $auth = 'David C Black <dcblack@mac.com>';
 our $tool = $RealScript;
 our $TOOL = uc $tool;
 our $user = getlogin || (getpwuid($<))[0] || "Intruder!";
-our $date = scalar localtime;
+our $timestamp = scalar localtime;
 
 # Defaults #<<<1
 our $rc = ".newrc";
@@ -172,6 +172,8 @@ push @template_list,split(':',$ENV{TEMPLATEPATH}) if exists $ENV{TEMPLATEPATH};
   Source
   State
   TDIR
+  TIME
+  TIMESTAMP
   KIND
   USER
   YEAR
@@ -183,7 +185,7 @@ push @template_list,split(':',$ENV{TEMPLATEPATH}) if exists $ENV{TEMPLATEPATH};
 ###############################################################################
 sub System { #<<<2
   my $cmd = "@_";
-  printf "%s\n",$cmd  unless exists $OPT{-quiet};
+  printf STDERR "%s\n",$cmd  unless exists $OPT{-quiet};
   return system($cmd) unless exists $OPT{-notreally};
 }
 
@@ -295,7 +297,7 @@ sub path { # Return full path given the current directory & a file relative to i
   &Confess("Empty filename '$file'!?") unless $file =~ m/\S/;
   unless ($file =~ m{.*/}) {
     # Simple filename
-    chdir $cwd;
+    chdir $cwd if $cwd ne '';
     $pathdir = &getcwd();
     if ($follow and -l $file and not exists $PATHSEEN{$cwd,$file}) {
       $PATHSEEN{$cwd,$file}=1;
@@ -538,18 +540,35 @@ sub INFO { #<<<2
         }#endif
         push @TEXT,"  $template:\n";
         my $has_pod = 0;
+        my $has_markdown = 0;
         while (<$TMPL_FH>) {
           chomp; chomp;
-          if (m{^=pod\s*}) {
+          if (m{^=pod\s*$}) {
             $has_pod = 1;
             last;
           }#endif
+          if (m{^=markdown\s*}) {
+            $has_markdown = 1;
+            next;
+          }#endif
+          if ($has_markdown) {
+            last if m{^=cut\s*$};
+            push @TEXT,"$_\n";
+            next;
+          }
           next unless m{^#: };
           push @TEXT, "  | $'\n";
         }#endwhile
         close $TMPL_FH;
         if ($has_pod) {
           system("perldoc $template_dir/$rc");
+        } elsif ($has_markdown) {
+          my $LESS_FH;
+          close $MORE_FH;
+          open $LESS_FH,q{|-},"less";
+          printf $LESS_FH "%s",join('',@TEXT),"\n";
+          close $LESS_FH;
+          open $MORE_FH,q{|-},"$PAGER";
         } else {
           printf $MORE_FH "%s",join('',@TEXT),"\n";
         }#endif
@@ -600,7 +619,7 @@ sub PARAMETERS { #<<<2
           or die "FATAL: Unable to read $template!?\n";
         my ($lhe,$rhe,$ifs) = ($file_lhe,$file_rhe,$file_ifs);
         while (my $line = <$TMP_FH>) {
-          my $phre = qr{${lhe}([<]?[\$]?\w[-.[:word:]]*?[>]?)${rhe}};
+          my $phre = qr{${lhe}([<]?[\$]?\w[-. \|[:word:]]*?[>]?)${rhe}};
           while ($line =~ s/$phre//) {
             my $ph = $1;
             next if grep($ph eq $_,@PRECIOUS);
@@ -718,8 +737,10 @@ sub prefix {
   } elsif ($fn eq 'qx') {
     $text =~ s/:/ /g;
     my $qx = '$'.qq{text = qx{$text};};
+    REPORT_DEBUG("qx: eval $qx");
     eval $qx;
     chomp $text;
+    REPORT_DEBUG("qx: text=$text");
   } elsif ($fn eq 'ap') {
     $text =~ s{[.]app/$}{};
     $text =~ s{.*/}{};
@@ -727,6 +748,11 @@ sub prefix {
     $text =~ s{^\s+}{};
     $text =~ s{\s+$}{};
     $text =~ s{\s+}{\n$&};
+  } elsif ($fn eq 'base') {
+    $text =~ s{[.][^.]+$}{};
+  } elsif ($fn eq 'strip') {
+    $text =~ s{[.][^.]+$}{};
+    $text =~ s{_}{ }g;
   } elsif ($fn eq 'uc') {
     $text = uc $text;
   } elsif ($fn eq 'lc') {
@@ -744,6 +770,14 @@ sub prefix {
       my $cc = (uc $1).$2;
       $text =~ s{_$la}{$cc};
     }#endwhile
+  } elsif ($fn eq 'rw') {
+    my $wsep = qr{[-.,:;]};
+    my $nsep = qr{[^-.,:;]};
+    my @rwrd = split(m{$wsep},$text);
+    $text =~ s/$nsep/$;/g;
+    for(my $rw, reverse @rwrd) {
+      $text =~ s{$;}{$rw};
+    }
   } elsif ($fn eq 'wc') {
     $text = lc $text;
     my $la = qr{([[:lower:]])([[:alpha:]])};
@@ -797,11 +831,11 @@ sub check_default { #<<<2
   my ($ph,$lhe,$rhe,$lvl) = @_;
   $lvl = 0 unless defined $lvl;
   if ($lvl > 10) {
-    &REPORT_ERROR("Too much recursion in check_default!");
+    &REPORT_ERROR("Too much recursion while processing '$ph' in check_default!");
     return;
   }#endif
   return unless exists $DEFAULT{$ph} and not exists $REPL{$ph};
-  my $phre = qr|$lhe(\w[-[:word:]]*)$rhe|x;
+  my $phre = qr|$lhe(\w[- \|[:word:]]*)$rhe|x;
   my $line = $DEFAULT{$ph};
   if ($line =~ $phre) {
     my $dph = $1;
@@ -811,6 +845,13 @@ sub check_default { #<<<2
   }
   $REPL{$ph} = $line;
 }#endsub check_default
+
+###############################################################################
+sub incr_USED {
+  my $ph = shift @_;
+  $ph =~ s{.*:}{}g;
+  ++$USED{$ph};
+}#endsub incr_USED
 
 ###############################################################################
 sub replace_placeholder { #<<<2
@@ -830,7 +871,7 @@ sub replace_placeholder { #<<<2
                  ([\<]?
                  |[\?]?
                  |[\$]?
-                 |\w[-[:word:]:=/.]*?
+                 |\w[- \|[:word:]:=/.]*?
                  |[\>\+\*]?
                  )
                 $rhe
@@ -908,7 +949,7 @@ sub replace_placeholder { #<<<2
           $truth = $DUPL{$ph};
         }#endif
       }#endif
-      ++$USED{$ph};
+      &incr_USED($ph);
       $truth = (defined $truth and $truth)?1:0;
       $truth = '!' if $#if > 0 and $if[$#if-1] =~ m{:[0!]$}; # nested false
       #------------------------------------------------------------------------
@@ -952,7 +993,7 @@ sub replace_placeholder { #<<<2
       }#endif
       goto SKIP;
     }#endif
-    ++$USED{$fph} if exists $USED{$fph};
+    &incr_USED($fph) if exists $USED{$fph};
     if (substr($ph,0,1) eq '<' or $fn eq 'include') {
       #------------------------------------------------------------------------
       # Include file <<<4
@@ -1053,18 +1094,13 @@ sub replace_placeholder { #<<<2
       #------------------------------------------------------------------------
       $line =~ s/$t//;
       #++$repl_c;
-    } elsif ($ph) {
-      #------------------------------------------------------------------------
-      # Leave placeholder since it wasn't found
-      #------------------------------------------------------------------------
-      $line =~ s/$t/{:$ph:}/;
-      #++$repl_c;
     } elsif ($fn eq 'new') {
       $ph =~ s/^$fn:// if $fn ne '';
       my $repl = &prefix($fn,$ph);
       $line =~ s/$t/$repl/;
       ++$repl_c;
     } elsif ($fn eq 'qx') {
+      REPORT_DEBUG("Found qx in $ph");
       $ph =~ s/^$fn://;
       my $repl = &prefix($fn,$ph);
       $line =~ s/$t/$repl/;
@@ -1073,6 +1109,12 @@ sub replace_placeholder { #<<<2
       $ph =~ s/^$fn:// if $fn ne '';
       my $repl = '';
       $line =~ s/$t/$repl/;
+    } elsif ($ph) {
+      #------------------------------------------------------------------------
+      # Leave placeholder since it wasn't found
+      #------------------------------------------------------------------------
+      $line =~ s/$t/{:$ph:}/;
+      #++$repl_c;
     } else {
       #------------------------------------------------------------------------
       # Leave untouched
@@ -1463,7 +1505,7 @@ ARGV: {
   &PARAMETERS($ARGV[0]) if @ARGV == 1 and exists $OPT{-placeholders};
   &TEST($ARGV[0]) if @ARGV == 1 and exists $OPT{-test};
   &INFO($ARGV[0]) if @ARGV == 1;
-  die "FATAL: Too many arguments!?\n" if scalar @ARGV > 2;
+  die "FATAL: Too many arguments?\n" if scalar @ARGV > 2;
   die "FATAL: Missing required arguments!?\n" unless scalar @ARGV >= 2;
   die "FATAL: Directory $OPT{-dir} doesn't exist!?\n" if defined $OPT{-dir} and not -d $OPT{-dir};
   ($kind,@name) = @ARGV;
@@ -1494,9 +1536,9 @@ NAMES: for my $name (@name) {
   our $year = $date[5] + 1900;
   our $mm = sprintf("%02d",$date[4]+1);
   our $dd = sprintf("%02d",$date[3]);
-  our @das = qw(Su Mo Tu We Th Fr Sa);
+  our @das = qw(Sunday Monday Tuesday Wednesday Thursday Friday Saturday);
   our $weekday = $das[$date[6]];
-  our $wd = sprintf("%s",$das[$date[6]]);
+  our $wd = sprintf("%2.2s",$das[$date[6]]);
   our $yda = sprintf("%03d",$date[7]);
   our $yw = sprintf("%02d",int($date[7]/7)+1);
   our $mdy2 = sprintf("%02d/%02d/%02d",$date[4]+1,$date[3],$date[5]%100);
@@ -1514,11 +1556,15 @@ NAMES: for my $name (@name) {
   our $month = $mos[$date[4]];
   our $mmm = substr($month,0,3);
   our $ymdhm = sprintf("%04d %3.3s %02d %d:%02d %s",$year,$mmm,$date[3],$hour,$minute,$pm);
+  our $date = sprintf("%s %d, %d",$month,$date[3],$year);
+  our $time = sprintf("%d:%02d %s",$hour,$minute,$pm);
 
   # Predefined
   $REPL{'NAME'}    = $name;
   $REPL{'KIND'}    = $kind;
   $REPL{'DATE'}    = $date;
+  $REPL{'TIMESTAMP'}   = $timestamp;
+  $REPL{'TIME'}        = $time;
   $REPL{'LX'}      = 'lx';
   $REPL{'XR'}      = 'xr';
   $REPL{'MDY2'}    = $mdy2;
@@ -1549,18 +1595,18 @@ NAMES: for my $name (@name) {
   $REPL{'NEVER'} = '0';
 
   # RCS keywords
-  $REPL{'Author'}   = '$'.'Author$';
-  $REPL{'Date'}     = '$'.'Date$';
-  $REPL{'Log'}      = '$'.'Log$';
-  $REPL{'RCSfile'}  = '$'.'RCSfile$';
-  $REPL{'Name'}     = '$'.'Name$';
-  $REPL{'File'}     = '$'.'File$';
-  $REPL{'Revision'} = '$'.'Revision$';
-  $REPL{'Source'}   = '$'.'Source$';
-  $REPL{'State'}    = '$'.'State$';
-  $REPL{'Id'}       = '$'.'Id$';
-  $REPL{'Header'}   = '$'.'Header$';
-  $REPL{'Locker'}   = '$'.'Locker$';
+  $REPL{'Author'}   = '@(#)$'.'Author$';
+  $REPL{'Date'}     = '@(#)$'.'Date$';
+  $REPL{'Log'}      = '@(#)$'.'Log$';
+  $REPL{'RCSfile'}  = '@(#)$'.'RCSfile$';
+  $REPL{'Name'}     = '@(#)$'.'Name$';
+  $REPL{'File'}     = '@(#)$'.'File$';
+  $REPL{'Revision'} = '@(#)$'.'Revision$';
+  $REPL{'Source'}   = '@(#)$'.'Source$';
+  $REPL{'State'}    = '@(#)$'.'State$';
+  $REPL{'Id'}       = '@(#)$'.'Id$';
+  $REPL{'Header'}   = '@(#)$'.'Header$';
+  $REPL{'Locker'}   = '@(#)$'.'Locker$';
 
   #------------------------------------------------------------------------------
   # Search for type #<<<2
@@ -1622,7 +1668,12 @@ NAMES: for my $name (@name) {
           }#endfor
         }#endif
         print "INFO: Matching /$phrqmt/\n" if exists $REPL{$phname} and exists $OPT{-verbose};
+        if( $phrqmt =~ m{^!} ) {
+          my $rqmt = $';
+          next if defined $phvalue and $phvalue !~ m{$rqmt}; # satisfied requirement
+        } else {
         next if defined $phvalue and $phvalue =~ m{$phrqmt}; # satisfied requirement
+        }
         $phvalue = '*UNDEFINED*' unless defined $phvalue;
         print "ERROR: Placeholder $phname with value $phvalue does not match requirement $phrqmt\n";
         $errors++;
@@ -1760,7 +1811,7 @@ NAMES: for my $name (@name) {
       $perm |= oct(220); # Make sure it's writeable by the user
       chmod $perm,$target;
       unless ($OPT{-quiet}) {
-        printf "Created %s/%s ",$target_dir,$target unless exists $OPT{-out};
+        printf qq{Created "%s/%s" },realpath($target_dir),$target unless exists $OPT{-out};
         printf "with " if $repl_total or $phld_total;
         printf "%d replacements",$repl_total if $repl_total;
         printf " & " if $repl_total and $phld_total;
@@ -1897,9 +1948,10 @@ any of:
 
  uc      => transform resultant text to all UPPERCASE
  lc      => transform resultant text to all lowercase
- sc      => transform resultant text to Sentence case.
- wc      => transform resultant text to Word Case
- cc      => transform resultant text to Camel Case
+ sc      => transform resultant text to Sentence case (first letter only)
+ wc      => transform resultant text to Word Case (assumes whitespace)
+ cc      => transform resultant text to Camel Case (uppercase after _)
+ rw      => transform resultant text to reverse ordering of words
  sq      => squeeze text to a legal linux filename
  sp      => split text on whitespace to separate lines
  include => use resultant text as a filename for inclusion (same as
@@ -1944,16 +1996,16 @@ Several RCS keywords are predefined.
 
  PLACEHOLDER     REPLACEMENT
  ~~~~~~~~~~~     ~~~~~~~~~~~
- {:Author:}      $ Author$
- {:Date:}        $ Date$
- {:Log:}         $ Log$
- {:RCSfile:}     $ RCSfile$
- {:Name:}        $ Name$
- {:Revision:}    $ Revision$
- {:Source:}      $ Source$
- {:State:}       $ State$
- {:Id:}          $ Id$
- {:Header:}      $ Header$
+ {:Author:}      @(#)$ Author$
+ {:Date:}        @(#)$ Date$
+ {:Log:}         @(#)$ Log$
+ {:RCSfile:}     @(#)$ RCSfile$
+ {:Name:}        @(#)$ Name$
+ {:Revision:}    @(#)$ Revision$
+ {:Source:}      @(#)$ Source$
+ {:State:}       @(#)$ State$
+ {:Id:}          @(#)$ Id$
+ {:Header:}      @(#)$ Header$
 
 =item {:DATE:}
 
@@ -1982,6 +2034,14 @@ Current date in MM/DD/YY format. Useful for change logs.
 =item {:MMDDY4:}
 
 Current date in MM/DD/YYYY format. Useful for change logs.
+
+=item {:TIME:}
+
+Current time in verbose format.
+
+=item {:TIMESTAMP:}
+
+Current date and time in verbose format.
 
 =item {:YYMMDD:}
 
@@ -2249,7 +2309,7 @@ changed. This option allows for situations where the syntax of the file
 uses the defaults in some meaningful way that would conflict with the
 script. Be careful in your choices.
 
-=item B<--require> [I<PLACEHOLDER=>]I<PATTERN>
+=item B<--require> [I<PLACEHOLDER=[!]>]I<PATTERN>
 
 Specifies either a placeholder requirement, or a directory path
 requirement for the target directory or the existance of a file in the
@@ -2259,6 +2319,10 @@ is found in the template's .newrc file.
 To require that the placeholder NAME be a valid identifier.
 
  --require NAME=^[a-zA-Z]\w*$
+
+To require that the placeholder NAME be a not have the suffix "_if".
+
+ --require NAME=!_if$
 
 To require that the CLIENT not have whitespace.
 
