@@ -1560,39 +1560,39 @@ NAMES: for my $name (@name) {
   our $time = sprintf("%d:%02d %s",$hour,$minute,$pm);
 
   # Predefined
-  $REPL{'NAME'}    = $name;
-  $REPL{'KIND'}    = $kind;
-  $REPL{'DATE'}    = $date;
+  $REPL{'NAME'}        = $name;
+  $REPL{'KIND'}        = $kind;
+  $REPL{'DATE'}        = $date;
   $REPL{'TIMESTAMP'}   = $timestamp;
   $REPL{'TIME'}        = $time;
-  $REPL{'LX'}      = 'lx';
-  $REPL{'XR'}      = 'xr';
-  $REPL{'MDY2'}    = $mdy2;
-  $REPL{'MMDDY4'}  = $mdy4;
-  $REPL{'YYMMDD'}  = $yymmdd;
-  $REPL{'Y4MMDD'}  = $y4mmdd;
-  $REPL{'YMDHM'}   = $ymdhm;
-  $REPL{'YEAR'}    = $year;
-  $REPL{'YY'}      = $year % 100;
-  $REPL{'MM'}      = $mm;
-  $REPL{'MMM'}     = $mmm;
-  $REPL{'MONTH'}   = $month;
-  $REPL{'WD'}      = $wd;
-  $REPL{'WEEKDAY'} = $weekday;
-  $REPL{'YD'}      = $yda;
-  $REPL{'YW'}      = $yw;
-  $REPL{'DD'}      = $dd;
-  $REPL{'DAY'}     = $date[3];
-  $REPL{'MH'}      = $mh;
-  $REPL{'HH'}      = $hh;
-  $REPL{'MN'}      = $mn;
-  $REPL{'PM'}      = $pm;
-  $REPL{'USER'}    = $user;
-  $REPL{'HOST'}    = hostname;
+  $REPL{'LX'}          = 'lx';
+  $REPL{'XR'}          = 'xr';
+  $REPL{'MDY2'}        = $mdy2;
+  $REPL{'MMDDY4'}      = $mdy4;
+  $REPL{'YYMMDD'}      = $yymmdd;
+  $REPL{'Y4MMDD'}      = $y4mmdd;
+  $REPL{'YMDHM'}       = $ymdhm;
+  $REPL{'YEAR'}        = $year;
+  $REPL{'YY'}          = $year % 100;
+  $REPL{'MM'}          = $mm;
+  $REPL{'MMM'}         = $mmm;
+  $REPL{'MONTH'}       = $month;
+  $REPL{'WD'}          = $wd;
+  $REPL{'WEEKDAY'}     = $weekday;
+  $REPL{'YD'}          = $yda;
+  $REPL{'YW'}          = $yw;
+  $REPL{'DD'}          = $dd;
+  $REPL{'DAY'}         = $date[3];
+  $REPL{'MH'}          = $mh;
+  $REPL{'HH'}          = $hh;
+  $REPL{'MN'}          = $mn;
+  $REPL{'PM'}          = $pm;
+  $REPL{'USER'}        = $user;
+  $REPL{'HOST'}        = hostname;
   $REPL{'NEW_VERSION'} = $revn;
-  $REPL{'NEW_ARGV'} = "$RealScript @ORIG";
-  $REPL{'ALWAYS'} = '1';
-  $REPL{'NEVER'} = '0';
+  $REPL{'NEW_ARGV'}    = "$RealScript @ORIG";
+  $REPL{'ALWAYS'}      = '1';
+  $REPL{'NEVER'}       = '0';
 
   # RCS keywords
   $REPL{'Author'}   = '@(#)$'.'Author$';
@@ -1672,7 +1672,7 @@ NAMES: for my $name (@name) {
           my $rqmt = $';
           next if defined $phvalue and $phvalue !~ m{$rqmt}; # satisfied requirement
         } else {
-        next if defined $phvalue and $phvalue =~ m{$phrqmt}; # satisfied requirement
+          next if defined $phvalue and $phvalue =~ m{$phrqmt}; # satisfied requirement
         }
         $phvalue = '*UNDEFINED*' unless defined $phvalue;
         print "ERROR: Placeholder $phname with value $phvalue does not match requirement $phrqmt\n";
